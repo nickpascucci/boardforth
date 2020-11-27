@@ -19,6 +19,8 @@ WITH REGARD TO THIS SOFTWARE.
 SDL_Window *gWindow = NULL;
 SDL_Renderer *gRenderer = NULL;
 SDL_Texture *gTexture = NULL;
+SDL_atomic_t quit;
+SDL_sem *frame_ready_sem;
 char *wName = NULL;
 
 /* draw */
@@ -123,54 +125,46 @@ static cell_t windowpos_undefined(void) { return SDL_WINDOWPOS_UNDEFINED; }
  */
 static cell_t windowpos_centered(void) { return SDL_WINDOWPOS_CENTERED; }
 
-static cell_t start(cell_t width, cell_t height, cell_t loc_x, cell_t loc_y,
-                    cell_t name_ptr, cell_t name_len) {
+static int ui_start(cell_t width, cell_t height, cell_t loc_x, cell_t loc_y
+                    /*, cell_t name_ptr, cell_t name_len */) {
   SDL_Rect r;
 
   if (gWindow != NULL) {
-    MSG(" Already initialized ");
+    /* MSG(" Already initialized "); */
     return 0;
   }
 
   if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-    MSG(" Failed to initialize SDL");
+    /* MSG(" Failed to initialize SDL"); */
     return SDL_GetError();
   }
 
-  wName = forth_to_c_str(name_ptr, name_len);
+  /* wName = forth_to_c_str(name_ptr, name_len); */
 
-  if (wName == NULL) {
-    MSG(" Failed to allocate memory for window name! ");
-    return 1;
-  }
+  /* if (wName == NULL) { */
+  /*   /\* MSG(" Failed to allocate memory for window name! "); *\/ */
+  /*   return 1; */
+  /* } */
 
   gWindow =
-      SDL_CreateWindow(wName, loc_x, loc_y, width, height, SDL_WINDOW_SHOWN);
+      SDL_CreateWindow("BoardForth", loc_x, loc_y, width, height, SDL_WINDOW_SHOWN);
   if (gWindow == NULL) {
-    MSG(" Failed to create SDL window");
+    /* MSG(" Failed to create SDL window"); */
     return SDL_GetError();
   }
 
   gRenderer = SDL_CreateRenderer(gWindow, -1, 0);
   if (gRenderer == NULL) {
-    MSG(" Failed to create SDL renderer");
+    /* MSG(" Failed to create SDL renderer"); */
     return SDL_GetError();
   }
 
   gTexture = SDL_CreateTexture(gRenderer, SDL_PIXELFORMAT_ARGB8888,
                                SDL_TEXTUREACCESS_TARGET, width, height);
   if (gTexture == NULL) {
-    MSG(" Failed to create SDL texture");
+    /* MSG(" Failed to create SDL texture"); */
     return SDL_GetError();
   }
-
-  MSG(" Created SDL window with parameters:");
-  EMIT_CR;
-  MSG_NUM_D("  Height: ", height);
-  MSG_NUM_D("  Width: ", width);
-  MSG("  Name: ");
-  MSG(wName);
-  EMIT_CR;
 
   r.w = width;
   r.h = height;
@@ -187,9 +181,6 @@ static cell_t start(cell_t width, cell_t height, cell_t loc_x, cell_t loc_y,
   SDL_RenderCopy(gRenderer, gTexture, NULL, NULL);
   SDL_RenderPresent(gRenderer);
 
-  /* Note: This call is necessary to force SDL to update the window. */
-  SDL_PumpEvents();
-
   return 0;
 }
 
@@ -203,7 +194,6 @@ CFunc0 CustomFunctionTable[] = {
     (CFunc0)windowpos_undefined,
     (CFunc0)windowpos_centered,
     (CFunc0)teardown,
-    (CFunc0)start,
 };
 
 Err CompileCustomFunctions(void) {
@@ -229,53 +219,51 @@ Err CompileCustomFunctions(void) {
   err = CreateGlueToC("DISP.TEARDOWN", i++, C_RETURNS_VOID, 0);
   if (err < 0) return err;
 
-  err = CreateGlueToC("DISP.START", i++, C_RETURNS_VALUE, 6);
-  if (err < 0) return err;
-
   return 0;
 }
 
-/* int */
-/* main(int argc, char **argv) */
-/* { */
-/* 	if(!init()) */
-/* 		return error("Init", "Failure"); */
+static int run_forth(void *ptr) {
+  int ret;
+  pfSetQuiet(FALSE);
+  ret = (int)pfDoForth("pforth.dic", NULL, FALSE);
+  SDL_AtomicSet(&quit, 1);
+  return ret;
+}
 
-/* 	while(1) { */
-/* 		SDL_Event event; */
-/* 		if(!begintime) */
-/* 			begintime = SDL_GetTicks(); */
-/* 		else */
-/* 			delta = endtime - begintime; */
+int main(int argc, char **argv) {
+  SDL_Thread *forth_thread;
 
-/* 		if(delta < noton.speed) */
-/* 			SDL_Delay(noton.speed - delta); */
+  SDL_AtomicSet(&quit, 0);
 
-/* 		if(noton.alive) { */
-/* 			run(&noton); */
-/* 			redraw(pixels, &brush); */
-/* 		} */
+  if (0 != ui_start(600, 400, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED)) {
+    return 1;
+  }
 
-/* 		while(SDL_PollEvent(&event) != 0) { */
-/* 			if(event.type == SDL_QUIT) */
-/* 				quit(); */
-/* 			else if(event.type == SDL_MOUSEBUTTONUP || */
-/* 					event.type == SDL_MOUSEBUTTONDOWN || */
-/* 					event.type == SDL_MOUSEMOTION) { */
-/* 				domouse(&event, &brush); */
-/* 			} else if(event.type == SDL_KEYDOWN) */
-/* 				dokey(&noton, &event); */
-/* 			else if(event.type == SDL_WINDOWEVENT) */
-/* 				if(event.window.event == */
-/* SDL_WINDOWEVENT_EXPOSED) */
-/* 					redraw(pixels, &brush); */
-/* 		} */
+  forth_thread = SDL_CreateThread(run_forth, "pForth", (void *)NULL);
 
-/* 		begintime = endtime; */
-/* 		endtime = SDL_GetTicks(); */
-/* 	} */
-/* 	quit(); */
-/* 	(void)argc; */
-/* 	(void)argv; */
-/* 	return 0; */
-/* } */
+  if (NULL == forth_thread) {
+    printf("SDL_CreateThread failed: %s\n", SDL_GetError());
+    exit(1);
+  }
+
+  while (1) {
+    SDL_Event event;
+
+    SDL_Delay(50);
+
+    /* Respond to Forth quitting. */
+    if (SDL_AtomicGet(&quit)) {
+      teardown();
+      exit(0);
+    }
+
+    while (SDL_PollEvent(&event) != 0) {
+    /* Respond to window system quit event. */
+      if (event.type == SDL_QUIT){
+        teardown();
+        return 0;
+      }
+    }
+  }
+  return 0;
+}
