@@ -19,67 +19,65 @@ WITH REGARD TO THIS SOFTWARE.
 SDL_Window *gWindow = NULL;
 SDL_Renderer *gRenderer = NULL;
 SDL_Texture *gTexture = NULL;
+
+Uint32 *pixels;
+SDL_mutex *pixels_mutex;
+
 SDL_atomic_t quit;
 SDL_sem *frame_ready_sem;
-char *wName = NULL;
 
-/* draw */
+#define WIDTH 800
+#define HEIGHT 600
 
-/* void */
-/* pixel(Uint32 *dst, int x, int y, int color) */
-/* { */
-/* 	if(x >= 0 && x < WIDTH - PAD * 2 && y >= 0 && y < HEIGHT - PAD * 2) */
-/* 		dst[(y + PAD) * WIDTH + (x + PAD)] = color; */
-/* } */
+const char *ui_start() {
+  if (gWindow != NULL) {
+    return 0;
+  }
 
-/* void */
-/* line(Uint32 *dst, int ax, int ay, int bx, int by, int color) */
-/* { */
-/* 	int dx = abs(bx - ax), sx = ax < bx ? 1 : -1; */
-/* 	int dy = -abs(by - ay), sy = ay < by ? 1 : -1; */
-/* 	int err = dx + dy, e2; */
-/* 	for(;;) { */
-/* 		pixel(dst, ax, ay, color); */
-/* 		if(ax == bx && ay == by) */
-/* 			break; */
-/* 		e2 = 2 * err; */
-/* 		if(e2 >= dy) { */
-/* 			err += dy; */
-/* 			ax += sx; */
-/* 		} */
-/* 		if(e2 <= dx) { */
-/* 			err += dx; */
-/* 			ay += sy; */
-/* 		} */
-/* 	} */
-/* } */
+  if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+    return SDL_GetError();
+  }
 
-/* void */
-/* clear(Uint32 *dst) */
-/* { */
-/* 	int i, j; */
-/* 	for(i = 0; i < HEIGHT; i++) */
-/* 		for(j = 0; j < WIDTH; j++) */
-/* 			dst[i * WIDTH + j] = color1; */
-/* } */
+  gWindow =
+      SDL_CreateWindow("BoardForth", SDL_WINDOWPOS_CENTERED,
+                       SDL_WINDOWPOS_CENTERED, WIDTH, HEIGHT, SDL_WINDOW_SHOWN);
+  if (gWindow == NULL) {
+    return SDL_GetError();
+  }
 
-/* void */
-/* redraw(Uint32 *dst, Brush *b) */
-/* { */
-/* 	int i; */
-/* 	clear(dst); */
-/* 	for(i = 0; i < noton.glen; i++) */
-/* 		drawgate(dst, &noton.gates[i]); */
-/* 	for(i = 0; i < noton.wlen; i++) */
-/* 		drawwire(dst, &noton.wires[i], color2); */
-/* 	drawwire(dst, &b->wire, color3); */
-/* 	SDL_UpdateTexture(gTexture, NULL, dst, WIDTH * sizeof(Uint32)); */
-/* 	SDL_RenderClear(gRenderer); */
-/* 	SDL_RenderCopy(gRenderer, gTexture, NULL, NULL); */
-/* 	SDL_RenderPresent(gRenderer); */
-/* } */
+  gRenderer = SDL_CreateRenderer(gWindow, -1, 0);
+  if (gRenderer == NULL) {
+    return SDL_GetError();
+  }
 
-static void teardown(void) {
+  gTexture = SDL_CreateTexture(gRenderer, SDL_PIXELFORMAT_ARGB8888,
+                               SDL_TEXTUREACCESS_STATIC, WIDTH, HEIGHT);
+  if (gTexture == NULL) {
+    return SDL_GetError();
+  }
+
+  pixels = (Uint32 *)malloc(WIDTH * HEIGHT * sizeof(Uint32));
+  if (pixels == NULL) {
+    return 1;
+  }
+
+  pixels_mutex = SDL_CreateMutex();
+  if (pixels_mutex == NULL) {
+    return 1;
+  }
+
+  SDL_SetRenderTarget(gRenderer, gTexture);
+  SDL_SetRenderDrawColor(gRenderer, 0x00, 0x00, 0x00, 0x00);
+  SDL_RenderClear(gRenderer);
+
+  SDL_SetRenderTarget(gRenderer, NULL);
+  SDL_RenderCopy(gRenderer, gTexture, NULL, NULL);
+  SDL_RenderPresent(gRenderer);
+
+  return 0;
+}
+
+void teardown(void) {
   if (gTexture != NULL) {
     SDL_DestroyTexture(gTexture);
     gTexture = NULL;
@@ -92,96 +90,54 @@ static void teardown(void) {
     SDL_DestroyWindow(gWindow);
     gWindow = NULL;
   }
-  SDL_PumpEvents();
-  if (wName != NULL) {
-    free(wName);
-    wName = NULL;
+  if (pixels != NULL) {
+    free(pixels);
+    pixels = NULL;
   }
 }
 
-/*
- * Forth uses address + length for string storage, where C uses NULL-terminated
- *  byte arrays. This function converts between the two.
- */
-static char *forth_to_c_str(cell_t addr, cell_t len) {
-  char *buf;
-  buf = (char *)malloc(len + 1);
+static cell_t pixel_addr(void) { return pixels; }
 
-  if (buf != NULL) {
-    memcpy(buf, addr, len);
-    buf[len] = NULL;
-  }
+static cell_t height(void) { return HEIGHT; }
 
-  return buf;
+static cell_t width(void) { return WIDTH; }
+
+static cell_t pixel_size(void) { return sizeof(Uint32); }
+
+static void request_render(void) {
+  printf("Requesting render. \n");
+  SDL_SemPost(frame_ready_sem);
 }
 
-/*
- * Helper for returning SDL_WINDOWPOS_UNDEFINED to Forth.
- */
-static cell_t windowpos_undefined(void) { return SDL_WINDOWPOS_UNDEFINED; }
-
-/*
- * Helper for returning SDL_WINDOWPOS_CENTERED to Forth.
- */
-static cell_t windowpos_centered(void) { return SDL_WINDOWPOS_CENTERED; }
-
-static int ui_start(cell_t width, cell_t height, cell_t loc_x, cell_t loc_y
-                    /*, cell_t name_ptr, cell_t name_len */) {
-  SDL_Rect r;
-
-  if (gWindow != NULL) {
-    /* MSG(" Already initialized "); */
-    return 0;
+static void lock_pixels(void) {
+  printf("Locking pixel buffer... ");
+  if (SDL_LockMutex(pixels_mutex) == 0) {
+    printf("Locked.\n");
+    return;
+  } else {
+    /* Something strange happened. */
+    exit(1);
   }
+}
 
-  if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-    /* MSG(" Failed to initialize SDL"); */
-    return SDL_GetError();
-  }
+static void unlock_pixels(void) {
+  printf("UN-locking pixel buffer.\n");
+  SDL_UnlockMutex(pixels_mutex);
+}
 
-  /* wName = forth_to_c_str(name_ptr, name_len); */
+static void render(void) {
+  lock_pixels();
 
-  /* if (wName == NULL) { */
-  /*   /\* MSG(" Failed to allocate memory for window name! "); *\/ */
-  /*   return 1; */
-  /* } */
+  printf("Rendering!\n");
 
-  gWindow =
-      SDL_CreateWindow("BoardForth", loc_x, loc_y, width, height, SDL_WINDOW_SHOWN);
-  if (gWindow == NULL) {
-    /* MSG(" Failed to create SDL window"); */
-    return SDL_GetError();
-  }
-
-  gRenderer = SDL_CreateRenderer(gWindow, -1, 0);
-  if (gRenderer == NULL) {
-    /* MSG(" Failed to create SDL renderer"); */
-    return SDL_GetError();
-  }
-
-  gTexture = SDL_CreateTexture(gRenderer, SDL_PIXELFORMAT_ARGB8888,
-                               SDL_TEXTUREACCESS_TARGET, width, height);
-  if (gTexture == NULL) {
-    /* MSG(" Failed to create SDL texture"); */
-    return SDL_GetError();
-  }
-
-  r.w = width;
-  r.h = height;
-  r.x = 0;
-  r.y = 0;
-
-  SDL_SetRenderTarget(gRenderer, gTexture);
-  SDL_SetRenderDrawColor(gRenderer, 0x00, 0x00, 0x00, 0x00);
+  SDL_UpdateTexture(gTexture, NULL, pixels, WIDTH * sizeof(Uint32));
   SDL_RenderClear(gRenderer);
-  SDL_RenderDrawRect(gRenderer, &r);
-  SDL_SetRenderDrawColor(gRenderer, 0xFF, 0x00, 0x00, 0x00);
-  SDL_RenderFillRect(gRenderer, &r);
-  SDL_SetRenderTarget(gRenderer, NULL);
   SDL_RenderCopy(gRenderer, gTexture, NULL, NULL);
   SDL_RenderPresent(gRenderer);
 
-  return 0;
+  printf("Render done\n");
+
+  unlock_pixels();
 }
 
 /*
@@ -189,11 +145,13 @@ static int ui_start(cell_t width, cell_t height, cell_t loc_x, cell_t loc_y
  * dictionary below.
  */
 CFunc0 CustomFunctionTable[] = {
-    (CFunc0)SDL_Quit,
-    (CFunc0)SDL_PumpEvents,
-    (CFunc0)windowpos_undefined,
-    (CFunc0)windowpos_centered,
-    (CFunc0)teardown,
+    (CFunc0)pixel_addr,
+    (CFunc0)height,
+    (CFunc0)width,
+    (CFunc0)pixel_size,
+    (CFunc0)request_render,
+    (CFunc0)lock_pixels,
+    (CFunc0)unlock_pixels,
 };
 
 Err CompileCustomFunctions(void) {
@@ -204,19 +162,25 @@ Err CompileCustomFunctions(void) {
    * Make sure order of functions matches that in CustomFunctionTable.
    * Parameters are: Name in UPPER CASE, Function Index, Mode, NumParams
    */
-  err = CreateGlueToC("DISP.QUIT", i++, C_RETURNS_VOID, 0);
+  err = CreateGlueToC("DISP.PIXBUF", i++, C_RETURNS_VALUE, 0);
   if (err < 0) return err;
 
-  err = CreateGlueToC("DISP.PUMP", i++, C_RETURNS_VOID, 0);
+  err = CreateGlueToC("DISP.HEIGHT", i++, C_RETURNS_VALUE, 0);
   if (err < 0) return err;
 
-  err = CreateGlueToC("DISP.UNDEFINED", i++, C_RETURNS_VALUE, 0);
+  err = CreateGlueToC("DISP.WIDTH", i++, C_RETURNS_VALUE, 0);
   if (err < 0) return err;
 
-  err = CreateGlueToC("DISP.CENTERED", i++, C_RETURNS_VALUE, 0);
+  err = CreateGlueToC("DISP.PIXSIZE", i++, C_RETURNS_VALUE, 0);
   if (err < 0) return err;
 
-  err = CreateGlueToC("DISP.TEARDOWN", i++, C_RETURNS_VOID, 0);
+  err = CreateGlueToC("DISP.RENDER", i++, C_RETURNS_VOID, 0);
+  if (err < 0) return err;
+
+  err = CreateGlueToC("DISP.LOCK", i++, C_RETURNS_VOID, 0);
+  if (err < 0) return err;
+
+  err = CreateGlueToC("DISP.UNLOCK", i++, C_RETURNS_VOID, 0);
   if (err < 0) return err;
 
   return 0;
@@ -230,12 +194,14 @@ static int run_forth(void *ptr) {
   return ret;
 }
 
+#ifdef PF_NO_MAIN
 int main(int argc, char **argv) {
   SDL_Thread *forth_thread;
 
   SDL_AtomicSet(&quit, 0);
+  frame_ready_sem = SDL_CreateSemaphore(0);
 
-  if (0 != ui_start(600, 400, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED)) {
+  if (0 != ui_start()) {
     return 1;
   }
 
@@ -251,6 +217,10 @@ int main(int argc, char **argv) {
 
     SDL_Delay(50);
 
+    if (SDL_SemTryWait(frame_ready_sem) == 0) {
+      render();
+    }
+
     /* Respond to Forth quitting. */
     if (SDL_AtomicGet(&quit)) {
       teardown();
@@ -258,8 +228,8 @@ int main(int argc, char **argv) {
     }
 
     while (SDL_PollEvent(&event) != 0) {
-    /* Respond to window system quit event. */
-      if (event.type == SDL_QUIT){
+      /* Respond to window system quit event. */
+      if (event.type == SDL_QUIT) {
         teardown();
         return 0;
       }
@@ -267,3 +237,4 @@ int main(int argc, char **argv) {
   }
   return 0;
 }
+#endif
