@@ -12,7 +12,6 @@ WITH REGARD TO THIS SOFTWARE.
 */
 
 #include <SDL2/SDL.h>
-#include <string.h>
 
 #include "pforth/csrc/pf_all.h"
 
@@ -145,12 +144,8 @@ static void render(void) {
  * dictionary below.
  */
 CFunc0 CustomFunctionTable[] = {
-    (CFunc0)pixel_addr,
-    (CFunc0)height,
-    (CFunc0)width,
-    (CFunc0)pixel_size,
-    (CFunc0)request_render,
-    (CFunc0)lock_pixels,
+    (CFunc0)pixel_addr,    (CFunc0)height,         (CFunc0)width,
+    (CFunc0)pixel_size,    (CFunc0)request_render, (CFunc0)lock_pixels,
     (CFunc0)unlock_pixels,
 };
 
