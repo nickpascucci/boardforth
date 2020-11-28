@@ -8,16 +8,19 @@ portable and lightweight Forth environment.
 
 SDL and Forth don't naturally fit together. SDL is a C library through and
 through, and doesn't conform exactly to Forth calling conventions. To integrate
-the two, BoardForth is implemented as a set of C functions which wrap SDL calls
-and provide conversions between Forth and C types. Because pForth is
-single-threaded, in order to support interactivity these functions also manage
-a separate UI thread and control access to shared resources.
+the two, BoardForth embeds the pForth interpreter within an SDL application. SDL
+runs on the main thread, controlling a rendering stack used to display a system
+window. A sub-thread executes pForth. The two threads share a common pixel
+buffer, whose access is managed using an SDL mutex lock. These structures are
+exposed by C functions linked into the Forth dictionary, allowing the two
+programs to communicate.
 
-The Forth thread executes the pForth interpreter which provides the primary
-interactive interface. The main thread holds a reference to an SDL rendering
-stack. The main thread is responsible for:
+The main thread is responsible for monitoring the SDL event loop and exiting if
+the app is quit, as well as waiting for a semaphore to be set by the Forth code
+and triggering a re-render of the pixel buffer to the display. If the Forth
+interpreter exits it sets another semaphore indicating to the main loop that it
+should exit.
 
-- monitoring the SDL event loop and exiting if the app is quit;
-- waiting on a semaphore to be set by the Forth code to trigger a re-draw of the
-  graphical UI;
-- listening for a Semaphore indicating Forth has exited and quitting the application.
+Drawing primitives are provided as Forth words, implemented using pixel-level
+operations. This allows easy iteration and does not require a separate
+compilation step.
