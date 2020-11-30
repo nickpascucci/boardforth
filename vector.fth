@@ -25,11 +25,12 @@
 1 CONSTANT POL.ADD
 
 \ Shape tags for structure below
-0 CONSTANT SHAPE.RECT      \ Rectangle
-1 CONSTANT SHAPE.CIRCLE    \ Circle
-2 CONSTANT SHAPE.LINE      \ Straight line
-3 CONSTANT SHAPE.ARC       \ Circular arc
-4 CONSTANT SHAPE.COMPOSITE \ Composite shape
+0 CONSTANT SHAPE.NONE      \ Blank
+1 CONSTANT SHAPE.RECT      \ Rectangle
+2 CONSTANT SHAPE.CIRCLE    \ Circle
+3 CONSTANT SHAPE.LINE      \ Straight line
+4 CONSTANT SHAPE.ARC       \ Circular arc
+5 CONSTANT SHAPE.COMPOSITE \ Composite shape
 
 \ Vector shapes are defined in terms of two XY coordinates. These coordinates
 \ are in a standard right-up cartesian coordinate system, and are interpreted as
@@ -67,6 +68,10 @@
   HERE \ Avoid assigning name to this vector by creating memory directly
   [ SIZEOF() VECTOR ] LITERAL ALLOT
   VEC.INIT
+;
+
+: VEC.NONE ( -- addr , Create an empty vector object )
+  0 0 0 0 SHAPE.NONE VEC.CREATE
 ;
 
 : VEC.RECT ( x1 y1 x2 y2 -- addr , Create a rectangle )

@@ -14,6 +14,15 @@
 \ Most operations act on the current board.
 VARIABLE CURRENT_BOARD
 
+0 CONSTANT BOARD_LAYER
+1 CONSTANT TOP_SILK_LAYER
+2 CONSTANT TOP_MASK_LAYER
+3 CONSTANT TOP_COPPER_LAYER
+4 CONSTANT BOT_COPPER_LAYER
+5 CONSTANT BOT_MASK_LAYER
+6 CONSTANT BOT_SILK_LAYER
+
+
 : LAYERS ( n -- )
   CURRENT_BOARD @ S! BOARD.NUM_LAYERS
 ;
@@ -22,8 +31,15 @@ VARIABLE CURRENT_BOARD
 \ substrate itself as well as discrete components, copper traces, silkscreen
 \ legends, etc. Components can be rendered into a graphics object for view or
 \ fabrication, and connected together in a netlist.
+\
+\ Rendering is done by EXECUTE'ing the execution token stored in the DRAW field.
+\ The DRAW logic should have the stack effect ( l -- vaddr ), where l is the
+\ layer number and vaddr is the address of the resulting vector object.
+\
+\ TODO How do we want to handle cleaning up vector objects after use? Right now
+\ they are just leaked; this is probably fine for a small project.
 :STRUCT COMPONENT
-  RPTR COMPONENT.SHAPE       \ Pointer to the component shape vector object
+  RPTR COMPONENT.DRAW        \ Execution token to draw the component as vector
   RPTR COMPONENT.NEXT_PART   \ Next component in the list
   RPTR COMPONENT.PORT_COORDS \ Pointer to table with coordinates for each port
   BYTE COMPONENT.NUM_PORTS   \ Number of ports in this component
@@ -58,11 +74,26 @@ VARIABLE CURRENT_BOARD
   CURRENT_BOARD @ S! BOARD.LAST_PART
 ;
 
+: RECTANGULAR.DRAW { w h -- }
+  :NONAME ( l -- vaddr )
+    BOARD_LAYER POSTPONE LITERAL POSTPONE =
+    POSTPONE IF
+      0 POSTPONE LITERAL
+      0 POSTPONE LITERAL
+      w POSTPONE LITERAL
+      h POSTPONE LITERAL
+      POSTPONE VEC.RECT
+    POSTPONE ELSE
+      POSTPONE VEC.NONE
+    POSTPONE THEN
+  POSTPONE ; \ caddr xt
+;
+
 : RECTANGULAR ( w h -- , Define and link a rectangular circuit board )
   COMPONENT.CREATE \ w h caddr
   -ROT \ caddr w h
-  0 0 2SWAP VEC.RECT \ caddr raddr
-  OVER \ caddr raddr caddr
-  S! COMPONENT.SHAPE
+  RECTANGULAR.DRAW \ caddr xt
+  OVER \ caddr xt caddr
+  S! COMPONENT.DRAW \ caddr
   COMPONENT.LINK
 ;
