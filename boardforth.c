@@ -104,14 +104,11 @@ static cell_t width(void) { return WIDTH; }
 static cell_t pixel_size(void) { return sizeof(Uint32); }
 
 static void request_render(void) {
-  printf("Requesting render. \n");
   SDL_SemPost(frame_ready_sem);
 }
 
 static void lock_pixels(void) {
-  printf("Locking pixel buffer... ");
   if (SDL_LockMutex(pixels_mutex) == 0) {
-    printf("Locked.\n");
     return;
   } else {
     /* Something strange happened. */
@@ -120,7 +117,6 @@ static void lock_pixels(void) {
 }
 
 static void unlock_pixels(void) {
-  printf("UN-locking pixel buffer.\n");
   SDL_UnlockMutex(pixels_mutex);
 }
 

@@ -1,0 +1,157 @@
+# Local Variables:
+# fill-column: 80
+# End:
+
+* BoardForth Developer Notes
+
+This file  holds work-in-progress  notes and  reference material  for BoardForth
+development.
+
+** Gerber Compatibility
+
+The end result of a design is a set of Gerber files which can be sent to a PCB
+fabrication house. To make this process easy, we should aim to keep the Forth
+representation of the board close to the Gerber mental model. This primarily
+means representing component graphics as Gerber analogs.
+
+** Data Structures
+
+*Board Table*
+
+- Defines the number of layers.
+- Contains pointers to the first and last components.
+
+- Q: How is the board shape represented in Gerber?
+- A: It's a separate file.
+
+*Component List*
+
+- Singly-linked list of components, first component is the board itself
+- Components are also pointed to by Forth words defined by their names.
+- Each component contains:
+  - Pointer to a Forth word which renders it to a layer
+  - Count of the number of ports it has
+  - Coordinates for each port
+
+*Connections Table*
+
+- Count of connections made
+- List of cells:
+  - Address of first component
+  - Port of first component
+  - Address of second component
+  - Port of second component
+
+- Q: Is this the best way to handle connections?
+  - Are all connections point to point, or are they multipoint?
+  - Are all connections to pins, or can they be represented as pins?
+    - I suppose the symbols on most diagrams have a natural number of connection
+      points.
+  - Physical location of connection endpoints
+
+*Layer Render Buffer*
+
+Pixel buffer exactly matching the window size, used for rendering a single board
+layer.
+
+*Board Render Buffer*
+
+Board layers in the layer render buffer are composited onto the board render buffer to produce a final image which is then drawn to the screen.
+
+** Rendering
+
+*** Layering
+
+Components may render graphics objects on multiple layers. For example, an IC
+component might have a set of pads which go on the top copper layer, a mask
+exposing the pads in the soldermask layer, and a silkscreen marker. At the end
+of the process each layer will be output as a single Gerber file, so we should
+try to use a compatible internal representation.
+
+The rendering process might look something like:
+
+- Create a set of vector object buffers to render to, one for each layer
+- For each component in the board:
+  - Draw abstract component using the vector buffers
+    - How do we know which ones to use for each component? What if the number of
+      layers changes? Do we need to redefine each component to increase the
+      layer count? Might be able to just ignore this as most hobby boards are
+      only two layers.
+- Create a pixel buffer to render the final result to.
+- Create a temporary pixel buffer to use for rendering each layer.
+- For each layer in order of view preference:
+  - Initialize the temporary pixel buffer with 100% transparent pixels.
+  - If the layer is enabled, draw it to the temporary pixel buffer using the
+    layer color and transparency, putting color where "dark" polarity (see the
+    Gerber format for explanation) shapes are and removing it from "clear"
+    polarity regions.
+  - TODO
+
+*** Drawing objects
+
+- Note that the Gerber coordinate system is right-up, rather than right-down as
+  screen coordinates are.
+- Gerber files can have 5 or 6 decimals of precision in their coordinates, which
+  puts a lower bound on the feature size.
+
+** Imagined Programs
+
+Here's a little mockup of what a BoardForth program might look like when the
+system is up and running.
+
+#+BEGIN_SRC forth
+  include boardforth.fth
+
+  board MY_BOARD
+  current_board ! my_board
+
+  \ Sets the number of layers on the board.
+  2 layers
+
+  \ Origin is the bottom left corner of whatever shape the user specifies here.
+  \ mm: ( n -- n ) Converts millimeter coordinate to internal representation
+  30 mm 30 mm rectangular
+
+
+  \ Set the draw location to (5mm, 5mm)
+  \ go: ( x y -- , moves edit location )
+  5 mm 5 mm go
+
+  \ Add a custom drawn object, in this case a 3mm fiducial.
+  \ mark.fiducial: ( d -- , creates mark and adds to board)
+  3 mm mark.fiducial
+
+  8 mm 0 mm go
+
+  \ part.uc.2X3_HEADER ( -- , creates header, adds to board, defs variable)
+  part.conn.2X3_HEADER H1
+
+  10 mm 10 mm go
+
+  \ Add an ATMEGA128 to the board named "IC1"
+  \ part.uc.ATMEGA128-16AU ( -- , creates IC component, adds to board, defs variable)
+  part.uc.ATMEGA128-16AU IC1
+
+  \ Add a connection from IC1 pin 22 to H1 pin 1.
+  \ connect: ( addr n addr n -- addr , leaves address of trace on stack)
+  IC1 22 pin H1 1 pin connect
+
+  \ Route the connection along the board
+#+END_SRC
+
+** References
+
+[[https://www.ucamco.com/files/downloads/file_en/416/the-gerber-file-format-specification-revision-2020-09-update_en.pdf?c0748ea9bf8efa9d8e145205a173e460][The Gerber Format Specification]]
+
+This spec defines how a Gerber image file is formed. These files define the
+shape of each board layer, including silk screens, soldermasks, and copper.
+
+[[https://www.ucamco.com/files/downloads/file_en/396/the-gerber-job-format-specification-revision-2020-08_en.pdf?c0748ea9bf8efa9d8e145205a173e460][The Gerber Job Format Specification]]
+
+This spec defines how a Gerber job file is formed. Job files are used to provide
+specifications not captured in the image format, and are generally not used for
+personal board projects.
+
+[[https://www.ucamco.com/en/gerber/downloads][Gerber Downloads]]
+
+Various resources including a file viewer and test data.
