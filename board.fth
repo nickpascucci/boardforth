@@ -7,29 +7,40 @@
   BYTE BOARD.NUM_LAYERS \ Number of layers in the board
 ;STRUCT
 
+: BOARD.INIT ( addr -- addr, Initialize a board's memory )
+  [ SIZEOF() BOARD ] LITERAL ERASE
+;
+
 \ Most operations act on the current board.
 VARIABLE CURRENT_BOARD
 
 : LAYERS ( n -- )
-  CURRENT_BOARD S! BOARD.NUM_LAYERS
+  CURRENT_BOARD @ S! BOARD.NUM_LAYERS
 ;
 
 \ A board "component". Components are considered broadly, and include the board
 \ substrate itself as well as discrete components, copper traces, silkscreen
 \ legends, etc. Components can be rendered into a graphics object for view or
 \ fabrication, and connected together in a netlist.
-:STRUCT COMPONENT_T
-  RPTR COMPONENT.DRAW_WORD   \ Execution token to draw the component
+:STRUCT COMPONENT
+  RPTR COMPONENT.SHAPE       \ Pointer to the component shape vector object
   RPTR COMPONENT.NEXT_PART   \ Next component in the list
   RPTR COMPONENT.PORT_COORDS \ Pointer to table with coordinates for each port
   BYTE COMPONENT.NUM_PORTS   \ Number of ports in this component
 ;STRUCT
 
-: COMPONENT.CREATE ( -- addr , Create a component by name and leave its address )
-  SAVE-INPUT  \ COMPONENT_T will consume the input buffer to create a variable;
-  COMPONENT_T \ store the input so we can retrieve that variable's address.
-  RESTORE-INPUT ABORT" Couldn't restore input!"
-  32 ( ASCII space ) PARSE EVALUATE
+: COMPONENT.INIT ( addr -- addr , Initialize a component)
+  DUP [ SIZEOF() COMPONENT ] LITERAL ERASE \ Zero memory
+;
+
+: COMPONENT.CREATE ( -- addr , Create an anonymous component )
+  HERE \ Avoid assigning name to this vector by creating memory directly
+  [ SIZEOF() COMPONENT ] LITERAL ALLOT
+  COMPONENT.INIT
+;
+
+: COMPONENT.NAMED ( <name> -- addr , Create a named component and leave its address )
+  CREATE COMPONENT.CREATE COMPONENT.INIT
 ;
 
 : COMPONENT.LINK ( addr -- , Link a component to the current board )
@@ -48,8 +59,10 @@ VARIABLE CURRENT_BOARD
 ;
 
 : RECTANGULAR ( w h -- , Define and link a rectangular circuit board )
-  COMPONENT.CREATE
-  \ TODO Define draw semantics for a rectangular board region.
+  COMPONENT.CREATE \ w h caddr
+  -ROT \ caddr w h
+  0 0 2SWAP VEC.RECT \ caddr raddr
+  OVER \ caddr raddr caddr
+  S! COMPONENT.SHAPE
   COMPONENT.LINK
 ;
-

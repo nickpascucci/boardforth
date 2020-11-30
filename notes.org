@@ -103,7 +103,7 @@ system is up and running.
   include boardforth.fth
 
   board MY_BOARD
-  current_board ! my_board
+  my_board current_board !
 
   \ Sets the number of layers on the board.
   2 layers
