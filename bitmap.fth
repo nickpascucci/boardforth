@@ -1,12 +1,26 @@
 \ Pixels
 
+: DISP.BUF_SIZE ( -- n , Get the size of the display buffer in bytes )
+  DISP.PIXSIZE DISP.WIDTH DISP.HEIGHT * * CHARS
+;
+
+\ Create a temporary drawing buffer which can be used to incrementally set up a
+\ frame.
+DISP.BUF_SIZE ALLOCATE 0= NOT ABORT" Could not allocate draw buffer!"
+CONSTANT DRAW_BUF
+
+: BLIT ( -- , Draw the contents on the drawing buffer onto the display buffer )
+  \ TODO Merge pixels with alpha
+  DRAW_BUF DISP.PIXBUF DISP.BUF_SIZE MOVE
+;
+
 \ Get the X pixel address offset. 
 : X_OFF ( n -- n ) DISP.PIXSIZE * ;
 
 \ Get the Y pixel address offset.
 : Y_OFF ( n -- n ) DISP.PIXSIZE * DISP.WIDTH * ;
 
-: PIX_ADDR ( x y -- a ) Y_OFF SWAP X_OFF + DISP.PIXBUF + ;
+: PIX_ADDR ( x y -- a ) Y_OFF SWAP X_OFF + DRAW_BUF + ;
 
 \ Set the pixel at (x,y) to n.
 : SET_PIX ( c x y -- ) PIX_ADDR ! ;
