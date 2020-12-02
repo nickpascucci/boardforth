@@ -82,3 +82,31 @@
   0 2OVER 2SWAP DROP + \ Create XY2 coordinate (x, y+r)
   SHAPE.CIRCLE VEC.CREATE
 ;
+
+: VEC.RECT_WH ( addr -- w h , Get the width and height of a vector rectangle )
+  DUP DUP DUP
+  S@ VEC.X2
+  SWAP S@ VEC.X1 -
+  -ROT S@ VEC.Y2
+  SWAP S@ VEC.Y1 -
+;
+
+: VEC.XY1 ( addr -- x1 y1 , Get the XY1 coordinates of the vector )
+  DUP \ addr addr
+  S@ VEC.X1 SWAP \ x1 addr
+  S@ VEC.Y1 \ x1 y1
+;
+
+: VEC.DRAW_RECT ( c addr -- , Draw a vector rectangle to a pixel buffer )
+  DUP \ c addr addr
+  VEC.XY1 \ addr x1 y1
+  ROT VEC.RECT_WH \ c x1 y1 w h
+  DRAW.RECT
+;
+
+: VEC.DRAW ( c addr -- , Draw a vector shape to a pixel buffer )
+  DUP S@ VEC.TYPE
+  CASE
+    SHAPE.RECT OF VEC.DRAW_RECT ENDOF
+  ENDCASE
+;

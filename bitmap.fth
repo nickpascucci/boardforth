@@ -43,7 +43,12 @@ DECIMAL
 
 \ Draw a horizontal line in a given color.
 : DRAW.HLINE ( c x y w -- )
-  0 DO
+  DUP 0> IF
+    0
+  ELSE
+    0 SWAP
+  THEN
+  DO
     3DUP
     SWAP I + SWAP
     SET_PIX
@@ -63,7 +68,12 @@ DECIMAL
 
 \ Draw a rectangle in a given color.
 : DRAW.RECT ( c x y w h -- )
-  0 DO
+  DUP 0> IF
+    0
+  ELSE
+    0 SWAP
+  THEN
+  DO
     4DUP
     SWAP I + SWAP
     DRAW.HLINE
