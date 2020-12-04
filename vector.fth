@@ -83,7 +83,7 @@
   SHAPE.CIRCLE VEC.CREATE
 ;
 
-: VEC.RECT_WH ( addr -- w h , Get the width and height of a vector rectangle )
+: VEC.WH ( addr -- w h , Get the width and height of a vector container )
   DUP DUP DUP
   S@ VEC.X2
   SWAP S@ VEC.X1 -
@@ -97,16 +97,26 @@
   S@ VEC.Y1 \ x1 y1
 ;
 
+: VEC.XY2 ( addr -- x2 y2 , Get the XY2 coordinates of the vector )
+  DUP
+  S@ VEC.X2 SWAP
+  S@ VEC.Y2
+;
+
+: VEC.SCREEN_COORDS ( addr -- sx1 sy1 sx2 sy2 , Get screen coords of vector )
+  DUP VEC.XY1 REFLECT_Y DISP.HEIGHT TRANSLATE_Y
+  ROT VEC.XY2 REFLECT_Y DISP.HEIGHT TRANSLATE_Y
+;
+
 : VEC.DRAW_RECT ( c addr -- , Draw a vector rectangle to a pixel buffer )
-  DUP \ c addr addr
-  VEC.XY1 \ addr x1 y1
-  ROT VEC.RECT_WH \ c x1 y1 w h
+  VEC.SCREEN_COORDS \ c x1 y1 x2 y2
   DRAW.RECT
 ;
 
 : VEC.DRAW ( c addr -- , Draw a vector shape to a pixel buffer )
   DUP S@ VEC.TYPE
   CASE
+    SHAPE.NONE OF DROP DROP ( Do nothing ) ENDOF
     SHAPE.RECT OF VEC.DRAW_RECT ENDOF
   ENDCASE
 ;

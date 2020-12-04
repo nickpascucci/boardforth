@@ -22,8 +22,62 @@ VARIABLE CURRENT_BOARD
 5 CONSTANT BOT_MASK_LAYER
 6 CONSTANT BOT_SILK_LAYER
 
+32 CONSTANT MAX_LAYERS
+
+\ Each bit corresponds to a layer; if the layer is visible, it is one.
+VARIABLE LAYER_ENABLED_FIELD
+HEX FFFF DECIMAL LAYER_ENABLED_FIELD !
+
+: LAYER_MASK ( n -- n , Create bitmask for layer )
+  1 SWAP LSHIFT
+;
+
+: LAYER_ON? ( n -- f , Return a truthy value if layer n is enabled )
+  LAYER_MASK LAYER_ENABLED_FIELD @ AND
+;
+
+: SHOW_LAYER ( n -- , Turn on a layer for rendering )
+  LAYER_MASK
+  LAYER_ENABLED_FIELD @
+  OR
+  LAYER_ENABLED_FIELD !
+;
+
+: HIDE_LAYER ( n -- , Turn on a layer for rendering )
+  LAYER_MASK
+  LAYER_ENABLED_FIELD @
+  XOR
+  LAYER_ENABLED_FIELD !
+;
+
+VARIABLE LAYER_COLORS MAX_LAYERS DISP.PIXSIZE * ALLOT
+
+: LAYER_COLOR_ADDR ( n -- addr , Get the address of the layer color cell )
+  DISP.PIXSIZE * LAYER_COLORS +
+;
+
+: LAYER_COLOR ( n -- c , Get the color for a given layer)
+  LAYER_COLOR_ADDR @
+;
+
+: SET_LAYER_COLOR ( c n -- , Set the color of a layer )
+  LAYER_COLOR_ADDR !
+;
+
+GREEN BOARD_LAYER SET_LAYER_COLOR
+WHITE TOP_SILK_LAYER SET_LAYER_COLOR
+BLUE  TOP_MASK_LAYER SET_LAYER_COLOR
+RED   TOP_COPPER_LAYER SET_LAYER_COLOR
+
+\ TODO Use separate colors for bottom/top layers.
+RED   BOT_COPPER_LAYER SET_LAYER_COLOR
+BLUE  BOT_MASK_LAYER SET_LAYER_COLOR
+WHITE BOT_SILK_LAYER SET_LAYER_COLOR
+
+\ TODO Set other layer colors
 
 : LAYERS ( n -- )
+  DUP MAX_LAYERS > ABORT" Can't use that many layers; check MAX_LAYERS"
   CURRENT_BOARD @ S! BOARD.NUM_LAYERS
 ;
 
@@ -72,6 +126,33 @@ VARIABLE CURRENT_BOARD
   THEN
   \ The new part is always the last one.
   CURRENT_BOARD @ S! BOARD.LAST_PART
+;
+
+: BOARD.DRAW_LAYER ( l -- , Draw a board layer to the temporary draw buffer )
+  CURRENT_BOARD @ S@ BOARD.FIRST_PART \ l paddr
+  DUP 0= NOT IF \ l paddr
+    BEGIN
+      2DUP \ l paddr l paddr
+      \ Create the vector object representing the component at this layer
+      S@ COMPONENT.DRAW EXECUTE \ l paddr vaddr
+      2 PICK LAYER_COLOR \ l paddr vaddr c
+      SWAP VEC.DRAW \ l paddr
+      DUP S@ COMPONENT.NEXT_PART
+      0=
+    UNTIL
+  THEN
+  2DROP
+;
+
+: BOARD.DRAW ( -- , Draw the board to the screen )
+  DISP.LOCK
+  DRAW_BUF CLEAR
+  CURRENT_BOARD @ S@ BOARD.NUM_LAYERS 0 DO
+    I BOARD.DRAW_LAYER
+    BLIT
+  LOOP
+  DISP.UNLOCK
+  DISP.RENDER
 ;
 
 : RECTANGULAR.DRAW { w h -- }

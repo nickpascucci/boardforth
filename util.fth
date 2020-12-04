@@ -1,6 +1,6 @@
 \ Misc
 
-: 3DROP ( n n n -- ) 3 0 DO DROP LOOP ;
+: 3DROP ( n n n -- ) DROP DROP DROP ;
 
 : 4DUP ( d d -- d d d d ) 2OVER 2OVER ;
 
