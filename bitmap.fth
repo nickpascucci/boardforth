@@ -1,7 +1,11 @@
 \ Pixels
 
+: PIXELS ( -- n , Get the size of a pixel in bytes )
+  DISP.PIXSIZE
+;
+
 : DISP.BUF_SIZE ( -- n , Get the size of the display buffer in bytes )
-  DISP.PIXSIZE DISP.WIDTH DISP.HEIGHT * * CHARS
+  PIXELS DISP.WIDTH DISP.HEIGHT * * CHARS
 ;
 
 \ Create a temporary drawing buffer which can be used to incrementally set up a
@@ -33,10 +37,30 @@ CONSTANT DRAW_BUF
   AND
 ;
 
+HEX
+FFFFFFFF CONSTANT PIX_MASK
+DECIMAL
+
+: COLORS ( -- n , Get the size of a color in bytes )
+  PIXELS
+;
+
+: COLOR@ ( addr -- c , Get the color at a given address )
+  @ PIX_MASK AND
+;
+
+: COLOR! ( c addr -- , Set the color stored at a given address )
+  SWAP PIX_MASK AND SWAP !
+;
+
 \ Set the pixel at (x,y) to n.
 : SET_PIX ( c x y -- )
   2DUP IN_BOUNDS? IF
-    PIX_ADDR !
+    PIX_ADDR
+    SWAP   PIX_MASK AND
+    OVER @ PIX_MASK INVERT AND
+    OR
+    SWAP !
   ELSE
     3DROP
     \ TODO When clipping is implemented, ABORT if asked to render outside the
@@ -64,7 +88,7 @@ CONSTANT DRAW_BUF
 
 HEX
 \ Basic colors
-: CLEAR 00000000 ;
+: TRANSPARENT 00000000 ;
 : BLACK FF000000 ;
 : WHITE FFFFFFFF ;
 : RED   FFFF0000 ;

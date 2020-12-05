@@ -57,18 +57,18 @@ VARIABLE UNITS_PER_PIXEL
   -1 UNITS_PER_PIXEL @ *
 ;
 
-VARIABLE LAYER_COLORS MAX_LAYERS DISP.PIXSIZE * ALLOT
+VARIABLE LAYER_COLORS MAX_LAYERS COLORS * ALLOT
 
 : LAYER_COLOR_ADDR ( n -- addr , Get the address of the layer color cell )
-  DISP.PIXSIZE * LAYER_COLORS +
+  COLORS * LAYER_COLORS +
 ;
 
 : LAYER_COLOR ( n -- c , Get the color for a given layer)
-  LAYER_COLOR_ADDR @
+  LAYER_COLOR_ADDR COLOR@
 ;
 
 : SET_LAYER_COLOR ( c n -- , Set the color of a layer )
-  LAYER_COLOR_ADDR !
+  LAYER_COLOR_ADDR COLOR!
 ;
 
 DARK_GREEN BOARD_OUTLINE_LAYER SET_LAYER_COLOR
@@ -136,12 +136,12 @@ WHITE TOP_SILK_LAYER SET_LAYER_COLOR
   CURRENT_BOARD @ S! BOARD.LAST_PART
 ;
 
-: BOARD.DRAW_COMPONENT ( l addr -- addr , Draw a component as a vector image )
+: BOARD.DRAW_COMPONENT ( addr -- addr , Draw a component as a vector image )
   S@ COMPONENT.DRAW EXECUTE
   DUP BOARD_ZOOM VEC.ZOOM
 ;
 
-: BOARD.DRAW_LAYER_IMAGE ( l addr -- , Draw a vector image in the layer color )
+: BOARD.DRAW_LAYER_IMAGE ( addr l -- , Draw a vector image in the layer color )
   LAYER_COLOR SWAP VEC.DRAW
 ;
 
@@ -153,7 +153,8 @@ WHITE TOP_SILK_LAYER SET_LAYER_COLOR
       2DUP \ l paddr l paddr
       \ Create the vector object representing the component at this layer
       BOARD.DRAW_COMPONENT \ l paddr vaddr
-      2 PICK BOARD.DRAW_LAYER_IMAGE \ l paddr
+      2 PICK \ l paddr vaddr l
+      BOARD.DRAW_LAYER_IMAGE \ l paddr
       DUP S@ COMPONENT.NEXT_PART
       0=
     UNTIL

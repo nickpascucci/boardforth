@@ -134,8 +134,7 @@
 ;
 
 : VEC.DRAW_RECT ( c addr -- , Draw a vector rectangle to a pixel buffer )
-  VEC.SCREEN_COORDS \ c x1 y1 x2 y2
-  DRAW.RECT
+  VEC.SCREEN_COORDS DRAW.RECT
 ;
 
 : VEC.DRAW ( c addr -- , Draw a vector shape to a pixel buffer )
