@@ -64,6 +64,17 @@
   POL.ADD OVER S! VEC.POLARITY
 ;
 
+: VEC.SHOW ( addr -- , Display a human-friendly printout of the vector )
+  CR
+  DUP S@ VEC.X1 ." X1: " .
+  DUP S@ VEC.X2 ." X2: " .
+  DUP S@ VEC.Y1 ." Y1: " .
+  DUP S@ VEC.Y2 ." Y2: " .
+  DUP S@ VEC.TYPE ." TYPE: " .
+  DUP S@ VEC.POLARITY ." POLARITY: " .
+  DROP
+;
+
 : VEC.CREATE ( x1 y1 x2 y2 type -- addr , Create an anonymous vector )
   HERE \ Avoid assigning name to this vector by creating memory directly
   [ SIZEOF() VECTOR ] LITERAL ALLOT
@@ -101,6 +112,20 @@
   DUP
   S@ VEC.X2 SWAP
   S@ VEC.Y2
+;
+
+\ Positive zoom factor zooms in. A negative zoom factor will zoom out.
+: VEC.ZOOM ( addr n -- , Apply a zoom transformation to the vector )
+  2DUP SWAP \ addr n n addr
+  VEC.XY1 ROT ZOOM \ addr n x1' y1'
+  3 PICK TUCK  \ addr n x1' addr y1'
+  S! VEC.Y1
+  S! VEC.X1 \ addr n
+  OVER \ addr n addr
+  VEC.XY2 ROT ZOOM \ addr x2' y2'
+  ROT TUCK  \ x2' addr y2' addr
+  S! VEC.Y2
+  S! VEC.X2
 ;
 
 : VEC.SCREEN_COORDS ( addr -- sx1 sy1 sx2 sy2 , Get screen coords of vector )

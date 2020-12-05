@@ -91,8 +91,19 @@ The rendering process might look something like:
 
 - Note that the Gerber coordinate system is right-up, rather than right-down as
   screen coordinates are.
-- Gerber files can have 5 or 6 decimals of precision in their coordinates, which
-  puts a lower bound on the feature size.
+- Gerber files must use mm and can have 6 decimals of precision in their
+  coordinates, which puts a lower bound on the feature size.
+
+**** TODO Rendering: add viewport and scaling
+Rendering a layer should proceed something like this:
+- Convert components to their vector representation at the layer of interest.
+- Translate the vector object to account for viewport pan.
+- Scale the vector object to account for zoom.
+  - Is this the right order? I suppose it depends on the routines we use for
+    translating the viewport and what units they use, which are dependent on the
+    zoom level.
+- Apply a viewport clipping mask to the vector object.
+- Draw the transformed and clipped vector object to the pixel buffer.
 
 ** Imagined Programs
 
