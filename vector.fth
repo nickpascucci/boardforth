@@ -69,19 +69,6 @@
   POL.ADD OVER S! VEC.POLARITY
 ;
 
-: VEC.SHOW ( addr -- , Display a human-friendly printout of the vector )
-  \ TODO Add support for showing groups
-  CR
-  ." => "
-  DUP S@ VEC.X1 ." X1: " .
-  DUP S@ VEC.Y1 ." Y1: " .
-  DUP S@ VEC.X2 ." X2: " .
-  DUP S@ VEC.Y2 ." Y2: " .
-  DUP S@ VEC.TYPE ." TYPE: " .
-  DUP S@ VEC.POLARITY ." POLARITY: " .
-  DROP
-;
-
 : VEC.CREATE ( x1 y1 x2 y2 type -- addr , Create an anonymous vector )
   HERE \ Avoid assigning name to this vector by creating memory directly
   [ SIZEOF() VECTOR ] LITERAL ALLOT
@@ -109,12 +96,20 @@
   OVER S! GROUP.N
 ;
 
-: GROUP.MEMBER_ADDR ( n addr -- addr , Get the address of a group member )
+: GROUP.MEMBER_COUNT ( addr -- n , Get the number of members in the group )
+    S@ VEC.DATA S@ GROUP.N
+;
+
+: GROUP.MEMBER_ADDR ( addr n -- addr , Get the address of a group member cell )
   \ Get base address of members field
-  S@ VEC.DATA
+  SWAP S@ VEC.DATA
   .. GROUP.MEMBERS
   SWAP
   CELLS +
+;
+
+: GROUP.GET_MEMBER ( addr n -- addr , Get the actual address of a group member )
+  GROUP.MEMBER_ADDR @
 ;
 
 : GROUP.INIT ( n -- vaddr n , Create a group object to hold n members )
@@ -129,7 +124,7 @@
   0 DO \ a* v
     DUP \ a* v v
     -ROT \ a*' v a' v
-    I SWAP GROUP.MEMBER_ADDR ! \ Index to I'th member and set value
+    I GROUP.MEMBER_ADDR ! \ Index to I'th member and set value
   LOOP
 ;
 
@@ -190,4 +185,35 @@
     SHAPE.RECT OF VEC.DRAW_RECT ENDOF
     \ TODO Implement drawing for groups
   ENDCASE
+;
+
+: VEC.SHOW_TYPE ( n -- , Display a human-friendly version of the vector type )
+  CASE
+    0 OF ." SHAPE.NONE " ENDOF
+    1 OF ." SHAPE.RECT " ENDOF
+    2 OF ." SHAPE.CIRCLE " ENDOF
+    3 OF ." SHAPE.LINE " ENDOF
+    4 OF ." SHAPE.ARC " ENDOF
+    5 OF ." SHAPE.GROUP " ENDOF
+  ENDCASE
+;
+
+: VEC.SHOW ( addr -- , Display a human-friendly printout of the vector )
+  CR
+  ." => "
+  DUP S@ VEC.X1 ." XY1: ( " .
+  DUP S@ VEC.Y1 ." , " . ." ) "
+  DUP S@ VEC.X2 ." XY2: ( " .
+  DUP S@ VEC.Y2 ." , " . ." ) "
+  DUP S@ VEC.TYPE ." TYPE: " VEC.SHOW_TYPE
+  DUP S@ VEC.POLARITY ." POLARITY: " .
+
+  DUP S@ VEC.TYPE SHAPE.GROUP =
+  IF
+    CR ." CHILDREN:"
+    DUP GROUP.MEMBER_COUNT 0 DO
+      DUP I GROUP.GET_MEMBER RECURSE
+    LOOP
+  THEN
+  DROP
 ;
