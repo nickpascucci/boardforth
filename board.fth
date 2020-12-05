@@ -121,7 +121,7 @@ WHITE TOP_SILK_LAYER SET_LAYER_COLOR
   CREATE COMPONENT.CREATE COMPONENT.INIT
 ;
 
-: COMPONENT.LINK ( addr -- , Link a component to the current board )
+: BOARD.ADD ( addr -- , Add a component to the current board )
   DUP \ Check if the current board has any components set.
   CURRENT_BOARD @ S@ BOARD.FIRST_PART 0=
   IF
@@ -136,15 +136,24 @@ WHITE TOP_SILK_LAYER SET_LAYER_COLOR
   CURRENT_BOARD @ S! BOARD.LAST_PART
 ;
 
+: BOARD.DRAW_COMPONENT ( l addr -- addr , Draw a component as a vector image )
+  S@ COMPONENT.DRAW EXECUTE
+  DUP BOARD_ZOOM VEC.ZOOM
+;
+
+: BOARD.DRAW_LAYER_IMAGE ( l addr -- , Draw a vector image in the layer color )
+  LAYER_COLOR SWAP VEC.DRAW
+;
+
 : BOARD.DRAW_LAYER ( l -- , Draw a board layer to the temporary draw buffer )
+  CR DUP ." Drawing layer " .
   CURRENT_BOARD @ S@ BOARD.FIRST_PART \ l paddr
   DUP 0= NOT IF \ l paddr
     BEGIN
       2DUP \ l paddr l paddr
       \ Create the vector object representing the component at this layer
-      S@ COMPONENT.DRAW EXECUTE \ l paddr vaddr
-      2 PICK LAYER_COLOR \ l paddr vaddr c
-      SWAP VEC.DRAW \ l paddr
+      BOARD.DRAW_COMPONENT \ l paddr vaddr
+      2 PICK BOARD.DRAW_LAYER_IMAGE \ l paddr
       DUP S@ COMPONENT.NEXT_PART
       0=
     UNTIL
@@ -178,11 +187,14 @@ WHITE TOP_SILK_LAYER SET_LAYER_COLOR
   POSTPONE ; \ caddr xt
 ;
 
-: RECTANGULAR ( w h -- , Define and link a rectangular circuit board )
+: RECTANGULAR.CREATE ( w h  -- addr , Define a rectangular circuit board )
   COMPONENT.CREATE \ w h caddr
   -ROT \ caddr w h
   RECTANGULAR.DRAW \ caddr xt
   OVER \ caddr xt caddr
   S! COMPONENT.DRAW \ caddr
-  COMPONENT.LINK
+;
+
+: RECTANGULAR ( w h -- , Define and link a rectangular circuit board )
+  RECTANGULAR.CREATE BOARD.ADD
 ;
