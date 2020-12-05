@@ -26,11 +26,23 @@ CONSTANT DRAW_BUF
 
 : PIX_ADDR ( x y -- a ) Y_OFF SWAP X_OFF + DRAW_BUF + ;
 
-\ Set the pixel at (x,y) to n.
-: SET_PIX ( c x y -- ) PIX_ADDR ! ;
+: IN_BOUNDS? ( x y -- f , Test if an XY coordinate is on the screen )
+  DUP 0 >= SWAP DISP.HEIGHT < AND
+  SWAP
+  DUP 0 >= SWAP DISP.WIDTH < AND
+  AND
+;
 
-\ Get the pixel value at (x,y).
-: GET_PIX ( x y -- n ) PIX_ADDR @ ;
+\ Set the pixel at (x,y) to n.
+: SET_PIX ( c x y -- )
+  2DUP IN_BOUNDS? IF
+    PIX_ADDR !
+  ELSE
+    3DROP
+    \ TODO When clipping is implemented, ABORT if asked to render outside the
+    \ viewport so that errors can be detected earlier.
+  THEN
+;
 
 :STRUCT ARGB
   BYTE ARGB.BLUE
