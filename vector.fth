@@ -154,10 +154,8 @@
   S@ VEC.Y2
 ;
 
-\ Positive zoom factor zooms in. A negative zoom factor will zoom out.
-\ TODO Implement zoom for groups
-: VEC.ZOOM ( addr n -- , Apply a zoom transformation to the vector )
-  2DUP SWAP \ addr n n addr
+: VEC.ZOOM_PRIMITIVE ( n addr -- , Apply a zoom transformation to a non-group )
+  SWAP 2DUP SWAP \ addr n n addr
   VEC.XY1 ROT ZOOM \ addr n x1' y1'
   3 PICK TUCK  \ addr n x1' addr y1'
   S! VEC.Y1
@@ -167,6 +165,40 @@
   ROT TUCK  \ x2' addr y2' addr
   S! VEC.Y2
   S! VEC.X2
+;
+
+\ Positive zoom factor zooms in. A negative zoom factor will zoom out.
+: VEC.ZOOM ( n addr -- , Apply a zoom transformation to the vector )
+  DUP S@ VEC.TYPE SHAPE.GROUP =
+  IF
+    DUP GROUP.MEMBER_COUNT 0 DO
+      2DUP I GROUP.GET_MEMBER RECURSE
+    LOOP
+  THEN
+  VEC.ZOOM_PRIMITIVE
+;
+
+: VEC.TRANSLATE_PRIMITIVE ( dx dy addr -- , Translate a non-group vector object )
+  TUCK
+  2OVER 2OVER
+  DUP S@ VEC.Y1
+  ROT + SWAP S! VEC.Y1
+  DUP S@ VEC.X1
+  ROT + SWAP S! VEC.X1
+  DUP S@ VEC.Y2
+  ROT + SWAP S! VEC.Y2
+  DUP S@ VEC.X2
+  ROT + SWAP S! VEC.X2
+;
+
+: VEC.TRANSLATE ( dx dy addr -- , Translate a vector object )
+  DUP S@ VEC.TYPE SHAPE.GROUP =
+  IF
+    DUP GROUP.MEMBER_COUNT 0 DO
+      3DUP I GROUP.GET_MEMBER RECURSE
+    LOOP
+  THEN
+  VEC.TRANSLATE_PRIMITIVE
 ;
 
 : VEC.SCREEN_COORDS ( addr -- sx1 sy1 sx2 sy2 , Get screen coords of vector )
@@ -183,7 +215,12 @@
   CASE
     SHAPE.NONE OF DROP DROP ( Do nothing ) ENDOF
     SHAPE.RECT OF VEC.DRAW_RECT ENDOF
-    \ TODO Implement drawing for groups
+    SHAPE.GROUP OF
+      DUP GROUP.MEMBER_COUNT 0 DO
+        2DUP I GROUP.GET_MEMBER RECURSE
+      LOOP
+      2DROP
+    ENDOF
   ENDCASE
 ;
 

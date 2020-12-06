@@ -138,7 +138,7 @@ WHITE TOP_SILK_LAYER SET_LAYER_COLOR
 
 : BOARD.DRAW_COMPONENT ( addr -- addr , Draw a component as a vector image )
   S@ COMPONENT.DRAW EXECUTE
-  DUP BOARD_ZOOM VEC.ZOOM
+  DUP BOARD_ZOOM SWAP VEC.ZOOM
 ;
 
 : BOARD.DRAW_LAYER_IMAGE ( addr l -- , Draw a vector image in the layer color )
@@ -147,14 +147,13 @@ WHITE TOP_SILK_LAYER SET_LAYER_COLOR
 
 : BOARD.DRAW_LAYER ( l -- , Draw a board layer to the temporary draw buffer )
   CR DUP ." Drawing layer " .
-  CURRENT_BOARD @ S@ BOARD.FIRST_PART \ l paddr
-  DUP 0= NOT IF \ l paddr
+  CURRENT_BOARD @ S@ BOARD.FIRST_PART
+  DUP 0= NOT IF
     BEGIN
-      2DUP \ l paddr l paddr
+      2DUP
       \ Create the vector object representing the component at this layer
-      BOARD.DRAW_COMPONENT \ l paddr vaddr
-      2 PICK \ l paddr vaddr l
-      BOARD.DRAW_LAYER_IMAGE \ l paddr
+      BOARD.DRAW_COMPONENT
+      2 PICK BOARD.DRAW_LAYER_IMAGE
       DUP S@ COMPONENT.NEXT_PART
       0=
     UNTIL
