@@ -7,3 +7,4 @@ include geometry.fth
 include bitmap.fth
 include vector.fth
 include board.fth
+include components.fth

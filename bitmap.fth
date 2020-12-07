@@ -50,7 +50,8 @@ DECIMAL
 ;
 
 : COLOR! ( c addr -- , Set the color stored at a given address )
-  SWAP PIX_MASK AND SWAP !
+  DUP @ PIX_MASK INVERT AND
+  ROT PIX_MASK AND OR SWAP !
 ;
 
 \ Set the pixel at (x,y) to n.
@@ -106,6 +107,10 @@ HEX
 : DARK_GREEN FF006400 ;
 : DARK_BLUE  FF00008B ;
 : GOLD       FFFFD700 ;
+: COPPER     FFB87333 ;
+
+\ Custom colors
+: FR4        FF204F35 ;
 DECIMAL
 
 \ Shapes
@@ -117,11 +122,15 @@ DECIMAL
   ELSE
     0 SWAP
   THEN
-  DO
-    3DUP
-    SWAP I + SWAP
-    SET_PIX
-  LOOP
+  2DUP = NOT IF
+    DO
+      3DUP
+      SWAP I + SWAP
+      SET_PIX
+    LOOP
+  ELSE
+    2DROP
+  THEN
   3DROP
 ;
 
