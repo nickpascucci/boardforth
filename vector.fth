@@ -21,8 +21,8 @@
 \
 \ Gerber File Format Specification, Section 2.3
 
-0 CONSTANT POL.SUBTRACT
-1 CONSTANT POL.ADD
+0 CONSTANT POL.SUB \ Remove color from the image
+1 CONSTANT POL.ADD \ Add color to the image
 
 \ Shape tags for structure below
 0 CONSTANT SHAPE.NONE   \ Blank
@@ -43,13 +43,13 @@
 \ ARC:    Clockwise arc from XY1 to XY2, both on the diameter of a circle.
 \ GROUP:  XY1 is the origin offset for the contained shapes, XY2 ignored.
 :STRUCT VECTOR
-  LONG VEC.X1       \ First X coordinate for this shape
-  LONG VEC.Y1       \ First Y coordinate for this shape
-  LONG VEC.X2       \ Second X coordinate for this shape
-  LONG VEC.Y2       \ Second Y coordinate for this shape
-  RPTR VEC.DATA     \ Additional data needed to fully describe the shape
-  BYTE VEC.TYPE     \ Shape tag
-  BYTE VEC.POLARITY \ Whether to add or subtract from the image
+  LONG VEC.X1   \ First X coordinate for this shape
+  LONG VEC.Y1   \ First Y coordinate for this shape
+  LONG VEC.X2   \ Second X coordinate for this shape
+  LONG VEC.Y2   \ Second Y coordinate for this shape
+  RPTR VEC.DATA \ Additional data needed to fully describe the shape
+  BYTE VEC.TYPE \ Shape tag
+  BYTE VEC.POL  \ Whether to add or subtract from the image
 ;STRUCT
 
 :STRUCT GROUP_INFO
@@ -66,7 +66,7 @@
 
   \ Set default values
   0       OVER S! VEC.DATA
-  POL.ADD OVER S! VEC.POLARITY
+  POL.ADD OVER S! VEC.POL
 ;
 
 : VEC.CREATE ( x1 y1 x2 y2 type -- addr , Create an anonymous vector )
@@ -211,6 +211,13 @@
 ;
 
 : VEC.DRAW ( c addr -- , Draw a vector shape to a pixel buffer )
+  \ Handle polarity: If the polarity is SUBTRACT, draw clear pixels instead of
+  \ colored ones. Otherwise, use the given color.
+  DUP S@ VEC.POL
+  POL.SUB = IF
+    NIP TRANSPARENT SWAP
+  THEN
+
   DUP S@ VEC.TYPE
   CASE
     SHAPE.NONE OF DROP DROP ( Do nothing ) ENDOF
@@ -243,7 +250,7 @@
   DUP S@ VEC.X2 ." XY2: ( " .
   DUP S@ VEC.Y2 ." , " . ." ) "
   DUP S@ VEC.TYPE ." TYPE: " VEC.SHOW_TYPE
-  DUP S@ VEC.POLARITY ." POLARITY: " .
+  DUP S@ VEC.POL ." POLARITY: " .
 
   DUP S@ VEC.TYPE SHAPE.GROUP =
   IF

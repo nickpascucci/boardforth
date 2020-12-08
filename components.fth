@@ -37,18 +37,25 @@
   VEC.RECT
 
   2 VEC.GROUP
-  DUP
-  x y
-  ROT
-  VEC.TRANSLATE
+  \ Translate pads to the right overall position
+  DUP x y ROT VEC.TRANSLATE
 ;
 
 : SMT_RESISTOR.DRAW_LAYER { lyr x y a b c -- addr }
   FALSE
   lyr
   CASE
-    TOP_COPPER_LAYER OF DROP x y a b c SMT_RESISTOR.DRAW_PADS TRUE ENDOF
-    TOP_MASK_LAYER   OF DROP x y a b c SMT_RESISTOR.DRAW_PADS TRUE ENDOF
+    TOP_COPPER_LAYER OF
+      DROP
+      x y a b c SMT_RESISTOR.DRAW_PADS
+      TRUE
+    ENDOF
+    TOP_MASK_LAYER OF
+      DROP
+      x y a b c SMT_RESISTOR.DRAW_PADS
+      POL.SUB OVER S! VEC.POL
+      TRUE
+    ENDOF
   ENDCASE
   NOT IF
     VEC.NONE
