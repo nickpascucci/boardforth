@@ -1,3 +1,64 @@
+\ Color space
+: ARGB_ALPHA ( c -- n , Get the alpha channel of a color )
+  24 RSHIFT
+;
+
+: ARGB_RED ( c -- n , Get the alpha channel of a color )
+  16 RSHIFT 255 AND
+;
+
+: ARGB_GREEN ( c -- n , Get the alpha channel of a color )
+  8 RSHIFT 255 AND
+;
+
+: ARGB_BLUE ( c -- n , Get the alpha channel of a color )
+  255 AND
+;
+
+: ARGB_JOIN ( b g r a -- c , Combine channels into a color )
+  24 LSHIFT
+  SWAP 16 LSHIFT +
+  SWAP 8 LSHIFT +
+  SWAP +
+;
+
+: ARGB_BLEND { ctop cbot -- cmix , Blend colors together with alpha transparency }
+  \ For each channel:
+  \ C_out = C_top * alpha_top + C_bot * alpha_bot * (1 - alpha_top)
+
+  CTOP ARGB_BLUE CTOP ARGB_ALPHA 255 */
+  255 CTOP ARGB_ALPHA -
+  CBOT ARGB_BLUE CBOT ARGB_ALPHA 255 */ 255 */
+  +
+
+  CTOP ARGB_GREEN CTOP ARGB_ALPHA 255 */
+  255 CTOP ARGB_ALPHA -
+  CBOT ARGB_GREEN CBOT ARGB_ALPHA 255 */ 255 */
+  +
+
+  CTOP ARGB_RED CTOP ARGB_ALPHA 255 */
+  255 CTOP ARGB_ALPHA -
+  CBOT ARGB_RED CBOT ARGB_ALPHA 255 */ 255 */
+  +
+
+  \ alpha_out = alpha_top + (alpha_bottom * (255 - alpha_top) / 255)
+  255 CTOP ARGB_ALPHA -
+  CBOT ARGB_ALPHA 255 */
+  CTOP ARGB_ALPHA +
+
+  ARGB_JOIN
+;
+
+: OPACITY ( c a -- c , Set the opacity of the color )
+  SWAP
+  DUP DUP
+  ARGB_BLUE ROT
+  ARGB_GREEN ROT
+  ARGB_RED
+  3 ROLL
+  ARGB_JOIN
+;
+
 \ Pixels
 
 : PIXELS ( -- n , Get the size of a pixel in bytes )
@@ -22,7 +83,7 @@ CONSTANT DRAW_BUF
   DISP.BUF_SIZE ERASE
 ;
 
-\ Get the X pixel address offset. 
+\ Get the X pixel address offset.
 : X_OFF ( n -- n ) DISP.PIXSIZE * ;
 
 \ Get the Y pixel address offset.
@@ -57,8 +118,9 @@ DECIMAL
 \ Set the pixel at (x,y) to n.
 : SET_PIX ( c x y -- )
   2DUP IN_BOUNDS? IF
-    PIX_ADDR
-    SWAP   PIX_MASK AND
+    PIX_ADDR \ c addr
+    SWAP PIX_MASK AND \ addr c
+    OVER COLOR@ ARGB_BLEND \ addr c'
     OVER @ PIX_MASK INVERT AND
     OR
     SWAP !
@@ -112,6 +174,7 @@ HEX
 \ Custom colors
 : FR4        FF204F35 ;
 DECIMAL
+
 
 \ Shapes
 
