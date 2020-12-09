@@ -61,8 +61,25 @@
 
 \ Pixels
 
+HEX
+FFFFFFFF CONSTANT PIX_MASK
+DECIMAL
+
+: COLOR@ ( addr -- c , Get the color at a given address )
+  @ PIX_MASK AND
+;
+
+: COLOR! ( c addr -- , Set the color stored at a given address )
+  DUP @ PIX_MASK INVERT AND
+  ROT PIX_MASK AND OR SWAP !
+;
+
 : PIXELS ( -- n , Get the size of a pixel in bytes )
   DISP.PIXSIZE
+;
+
+: COLORS ( -- n , Get the size of a color in bytes )
+  PIXELS
 ;
 
 : DISP.BUF_SIZE ( -- n , Get the size of the display buffer in bytes )
@@ -74,20 +91,26 @@
 DISP.BUF_SIZE ALLOCATE 0= NOT ABORT" Could not allocate draw buffer!"
 CONSTANT DRAW_BUF
 
-: BLIT ( -- , Draw the contents on the drawing buffer onto the display buffer )
-  \ TODO Merge pixels with alpha
-  DRAW_BUF DISP.PIXBUF DISP.BUF_SIZE MOVE
-;
-
-: CLEAR ( addr -- , Clear a render buffer )
-  DISP.BUF_SIZE ERASE
-;
-
 \ Get the X pixel address offset.
 : X_OFF ( n -- n ) DISP.PIXSIZE * ;
 
 \ Get the Y pixel address offset.
 : Y_OFF ( n -- n ) DISP.PIXSIZE * DISP.WIDTH * ;
+
+\ TODO track dirty region and only blit that
+: BLIT ( -- , Draw the contents of the drawing buffer onto the display buffer )
+  DISP.HEIGHT 0 DO
+    DISP.WIDTH 0 DO
+      DRAW_BUF    I X_OFF J Y_OFF + + COLOR@
+      DISP.PIXBUF I X_OFF J Y_OFF + + COLOR@ ARGB_BLEND
+      DISP.PIXBUF I X_OFF J Y_OFF + + COLOR!
+    LOOP
+  LOOP
+;
+
+: CLEAR ( addr -- , Clear a render buffer )
+  DISP.BUF_SIZE ERASE
+;
 
 : PIX_ADDR ( x y -- a ) Y_OFF SWAP X_OFF + DRAW_BUF + ;
 
@@ -98,29 +121,11 @@ CONSTANT DRAW_BUF
   AND
 ;
 
-HEX
-FFFFFFFF CONSTANT PIX_MASK
-DECIMAL
-
-: COLORS ( -- n , Get the size of a color in bytes )
-  PIXELS
-;
-
-: COLOR@ ( addr -- c , Get the color at a given address )
-  @ PIX_MASK AND
-;
-
-: COLOR! ( c addr -- , Set the color stored at a given address )
-  DUP @ PIX_MASK INVERT AND
-  ROT PIX_MASK AND OR SWAP !
-;
-
 \ Set the pixel at (x,y) to n.
 : SET_PIX ( c x y -- )
   2DUP IN_BOUNDS? IF
     PIX_ADDR \ c addr
     SWAP PIX_MASK AND \ addr c
-    OVER COLOR@ ARGB_BLEND \ addr c'
     OVER @ PIX_MASK INVERT AND
     OR
     SWAP !
