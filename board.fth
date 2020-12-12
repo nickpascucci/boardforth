@@ -56,6 +56,14 @@ VARIABLE UNITS_PER_PIXEL
   -1 UNITS_PER_PIXEL @ *
 ;
 
+: ZOOM_IN ( -- , Zoom in by a factor of 2 )
+  UNITS_PER_PIXEL @ 2 / UNITS_PER_PIXEL !
+;
+
+: ZOOM_OUT ( -- , Zoom out by a factor of 2 )
+  UNITS_PER_PIXEL @ 2 * UNITS_PER_PIXEL !
+;
+
 VARIABLE LAYER_COLORS MAX_LAYERS COLORS * ALLOT
 
 : LAYER_COLOR_ADDR ( n -- addr , Get the address of the layer color cell )
@@ -163,10 +171,9 @@ WHITE              TOP_SILK_LAYER   SET_LAYER_COLOR
 
 : BOARD.DRAW ( -- , Draw the board to the screen )
   DISP.LOCK
-  DISP.PIXBUF CLEAR
   CURRENT_BOARD @ S@ BOARD.NUM_LAYERS 0 DO
     I LAYER_ON? IF
-      DRAW_BUF CLEAR
+      CLEAR
       I BOARD.DRAW_LAYER
       BLIT
     THEN

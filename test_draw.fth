@@ -1,4 +1,4 @@
-draw_buf clear blit
+clear blit
 
 50 50 100 100 vec.rect
 150 150 250 250 vec.rect
@@ -8,9 +8,13 @@ constant test_group
 
 blue test_group vec.draw
 
+blit
+
 50 50 test_group vec.translate
 
 red 127 opacity test_group vec.draw
+
+blit
 
 -40 0 test_group vec.translate
 

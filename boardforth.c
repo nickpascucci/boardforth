@@ -28,6 +28,8 @@ SDL_sem *frame_ready_sem;
 #define WIDTH 800
 #define HEIGHT 600
 
+void clear_pixel_buffer(void);
+
 const char *ui_start() {
   if (gWindow != NULL) {
     return 0;
@@ -59,6 +61,7 @@ const char *ui_start() {
   if (pixels == NULL) {
     return 1;
   }
+  clear_pixel_buffer();
 
   pixels_mutex = SDL_CreateMutex();
   if (pixels_mutex == NULL) {
@@ -95,6 +98,10 @@ void teardown(void) {
   }
 }
 
+void clear_pixel_buffer(void) {
+  memset(pixels, NULL, WIDTH * HEIGHT * sizeof(Uint32));
+}
+
 static cell_t pixel_addr(void) { return pixels; }
 
 static cell_t height(void) { return HEIGHT; }
@@ -129,6 +136,7 @@ static void render(void) {
   SDL_RenderClear(gRenderer);
   SDL_RenderCopy(gRenderer, gTexture, NULL, NULL);
   SDL_RenderPresent(gRenderer);
+  clear_pixel_buffer();
 
   printf("Render done\n");
 
